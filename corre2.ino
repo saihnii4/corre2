@@ -4,12 +4,13 @@
 
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
+// TODO: scroll overflow
 const char* options[5] = {
-    "Commit suicide",
-    "Go kill yourself",
-    "LMAO",
-    "Watch e621",
-    "Ok"
+    "Take the blue pill",
+    "Take the red pill",
+    "Take the green pill",
+    "idk what to put here",
+    "lol"
 };
 
 unsigned int index;
