@@ -2,17 +2,16 @@
 // #include <TH02_dev.h>
 // #include "rgb_lcd.h"
 
+#define OPTION_SIZE 2 // too fucking lazy mate
+
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
 int tempPin = A5, joystickX = 0, joystickY = 1, sw = 7;
 
 // TODO: scroll overflow
-const char* options[5] = {
-    "Take the blue pill",
-    "Take the red pill",
-    "Take the green pill",
-    "idk what to put here",
-    "lol"
+const char* options[OPTION_SIZE] = {
+    "Temperature",
+    "Alarms     ",
 };
 
 unsigned int index;
@@ -37,26 +36,40 @@ void checkTemperature() {
     double temp = log(10000*((1024.0/raw_adc-1)));
     temp = 1 / (0.001129148 + (0.000234125 + (0.0000000876741 * temp * temp ))* temp );
     temp = temp - 273.15;            // apparently data is sent in kelvins
-    if (temp >= 25 || temp <= 20) log("temp", "temperature is out of recommended");
+    if (temp >= 25 || temp <= 20) log("temp", "temperature is no longer at optimum"); // TODO: buzzer
 }
 
 void setup() {
     Serial.begin(9600);
 
     // pin connections may vary depending on circuit
-    pinMode(A0, INPUT);
-    pinMode(A1, INPUT);
+    pinMode(A5, INPUT);
+    pinMode(A4, INPUT);
     pinMode(7, INPUT);
+    pinMode(tempPin, INPUT);
+
+    digitalWrite(7, HIGH);
+
     lcd.clear();
     lcd.begin(16, 2);
 }
 
 void loop() {
-    checkTemperature();
+    /* checkTemperature(); */
 
-    int x =  (int)analogRead(A0);
-    int y =  (int)analogRead(A1);
+    int x =  (int)analogRead(A5);
+    int y =  (int)analogRead(A4);
     int on = (int)digitalRead(7);
+
+    Serial.println((int)digitalRead(7));
+
+    /* Serial.println((int)analogRead(A1), HEX); */
+
+    int oscill = abs(sin(((double)millis()/1000)-floor((double)millis()/1000)*2*3.14));
+    analogWrite(8, 255/2);
+
+    int test = (int)digitalRead(A4);
+
     int orientation = x + y - 1023;
 
     if (!(orientation >= -100 && orientation <= 100)) {
@@ -67,7 +80,7 @@ void loop() {
             index--;
     }
 
-    if (index > 4) index = 0;
+    if (index > OPTION_SIZE-1) index = 0;
 
     lcd.setCursor(0,0);
     lcd.print(format_string("> %s", options[index]));
