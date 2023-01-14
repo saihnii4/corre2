@@ -1,10 +1,10 @@
 #include <LiquidCrystal.h>
-// #include <TH02_dev.h>
-// #include "rgb_lcd.h"
+#include <TH02_dev.h>
+#include "rgb_lcd.h"
 
 #define OPTION_SIZE 2 // too fucking lazy mate
 
-LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+rgb_lcd lcd;
 
 int tempPin = A5, joystickX = 0, joystickY = 1, sw = 7;
 
@@ -50,25 +50,23 @@ void setup() {
 
     digitalWrite(7, HIGH);
 
-    lcd.clear();
     lcd.begin(16, 2);
+    lcd.clear();
 }
 
 void loop() {
-    /* checkTemperature(); */
+    // checkTemperature();
 
-    int x =  (int)analogRead(A5);
-    int y =  (int)analogRead(A4);
+    int x =  (int)analogRead(A2);
+    int y =  (int)analogRead(A3);
     int on = (int)digitalRead(7);
-
-    Serial.println((int)digitalRead(7));
+    // TODO: Use chinese temperature sensor instead
+    Serial.println(format_string("%d", (double)TH02.ReadTemperature()));
 
     /* Serial.println((int)analogRead(A1), HEX); */
 
     int oscill = abs(sin(((double)millis()/1000)-floor((double)millis()/1000)*2*3.14));
     analogWrite(8, 255/2);
-
-    int test = (int)digitalRead(A4);
 
     int orientation = x + y - 1023;
 
