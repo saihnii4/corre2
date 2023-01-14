@@ -6,9 +6,14 @@
 
 rgb_lcd lcd;
 
-int tempPin = A5, joystickX = 0, joystickY = 1, sw = 7;
+int tempPin = A0, joystickX = 0, joystickY = 1, sw = 7, buzzerPin = 4;
 
-// TODO: scroll overflow
+// TODO: implement finite state machine
+void temperatureMenu(int joystickX, int joystickY, int pressed);
+// TODO: potentiometer as dial maybe?
+void alarmMenu(int joystickX, int joytickY, int pressed, int dial);
+
+// TODO: scroll overflow & translation
 const char* options[OPTION_SIZE] = {
     "Temperature",
     "Alarms     ",
@@ -36,11 +41,13 @@ void checkTemperature() {
     double temp = log(10000*((1024.0/raw_adc-1)));
     temp = 1 / (0.001129148 + (0.000234125 + (0.0000000876741 * temp * temp ))* temp );
     temp = temp - 273.15;            // apparently data is sent in kelvins
-    if (temp >= 25 || temp <= 20) log("temp", "temperature is no longer at optimum"); // TODO: buzzer
+    Serial.println(temp);
+    if (temp >= 25 || temp <= 20) digitalWrite(buzzerPin, HIGH);
+    else digitalWrite(buzzerPin, LOW);
 }
 
 void setup() {
-    Serial.begin(9600);
+    Serial.begin(112600);
 
     // pin connections may vary depending on circuit
     pinMode(A5, INPUT);
@@ -55,13 +62,12 @@ void setup() {
 }
 
 void loop() {
-    // checkTemperature();
+    checkTemperature();
 
     int x =  (int)analogRead(A2);
     int y =  (int)analogRead(A3);
     int on = (int)digitalRead(7);
-    // TODO: Use chinese temperature sensor instead
-    Serial.println(format_string("%d", (double)TH02.ReadTemperature()));
+    /* Serial.println(format_string("%d", (double)TH02.ReadTemperature())); */
 
     /* Serial.println((int)analogRead(A1), HEX); */
 
