@@ -1,8 +1,10 @@
 #include <LiquidCrystal.h>
-#include <TH02_dev.h>
-#include "rgb_lcd.h"
+// #include <TH02_dev.h>
+// #include "rgb_lcd.h"
 
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+
+int tempPin = A5, joystickX = 0, joystickY = 1, sw = 7;
 
 // TODO: scroll overflow
 const char* options[5] = {
@@ -25,6 +27,19 @@ const char *format_string(const char *format, Args... args) {
   return buf;
 }
 
+template <typename... Args>
+void log(const char* module, const char* message) {
+    Serial.println(format_string("[%s] %s", module, message));
+}
+
+void checkTemperature() {
+    int raw_adc = analogRead(tempPin);
+    double temp = log(10000*((1024.0/raw_adc-1)));
+    temp = 1 / (0.001129148 + (0.000234125 + (0.0000000876741 * temp * temp ))* temp );
+    temp = temp - 273.15;            // apparently data is sent in kelvins
+    if (temp >= 25 || temp <= 20) log("temp", "temperature is out of recommended");
+}
+
 void setup() {
     Serial.begin(9600);
 
@@ -37,6 +52,8 @@ void setup() {
 }
 
 void loop() {
+    checkTemperature();
+
     int x =  (int)analogRead(A0);
     int y =  (int)analogRead(A1);
     int on = (int)digitalRead(7);
