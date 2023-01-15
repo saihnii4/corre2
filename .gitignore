@@ -1,4 +1,5 @@
 .ccls-cache
+**/build/*
 build/*
 sketch.json
 *.vim 
