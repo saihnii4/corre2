@@ -2,24 +2,44 @@
 #include <TH02_dev.h>
 #include "rgb_lcd.h"
 
-#define OPTION_SIZE 2 // too fucking lazy mate
+#define OPTION_SIZE 3 // too fucking lazy mate
 
 rgb_lcd lcd;
+bool UP, DOWN;
+typedef void (*handler_func)(bool, bool, int, int, int);
 
 int tempPin = A0, joystickX = 0, joystickY = 1, sw = 7, buzzerPin = 4;
 
-// TODO: implement finite state machine
-void temperatureMenu(int joystickX, int joystickY, int pressed);
-// TODO: potentiometer as dial maybe?
-void alarmMenu(int joystickX, int joytickY, int pressed, int dial);
+void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
+    lcd.clear();
+    lcd.print("Alarm");
+}
+
+void temperature_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
+    lcd.clear();
+    lcd.print("Temperature");
+}
+
+void settings_menu(bool up, bool down, int jx, int jy, bool pressed) {
+    lcd.clear();
+    lcd.print("Settings");
+}
 
 // TODO: scroll overflow & translation
 const char* options[OPTION_SIZE] = {
     "Temperature",
     "Alarms     ",
+    "Settings   ",
 };
 
-unsigned int index;
+handler_func handlers[OPTION_SIZE] = {
+    temperature_menu,
+    alarm_menu,
+    settings_menu
+};
+
+int index;
+bool in_menu = false;
 
 // some code i lifted from another project
 template <typename... Args>
@@ -41,13 +61,28 @@ void checkTemperature() {
     double temp = log(10000*((1024.0/raw_adc-1)));
     temp = 1 / (0.001129148 + (0.000234125 + (0.0000000876741 * temp * temp ))* temp );
     temp = temp - 273.15;            // apparently data is sent in kelvins
-    Serial.println(temp);
     if (temp >= 25 || temp <= 20) digitalWrite(buzzerPin, HIGH);
     else digitalWrite(buzzerPin, LOW);
 }
 
+void main_menu(bool up, bool down, int _jx, int _jy, int pressed) {
+    if (!pressed) {
+        Serial.println(format_string("%d %d", pressed, in_menu));
+        in_menu = true;
+    }
+    if (up) index--;
+    if (up && index+1 == 0) index = OPTION_SIZE-1;
+    if (down) index++;
+    if (index > OPTION_SIZE-1) index = 0;
+
+    lcd.setCursor(0,0);
+    lcd.print(format_string("> %s", options[index]));
+    lcd.setCursor(0,1);
+    lcd.print(index);
+}
+
 void setup() {
-    Serial.begin(112600);
+    Serial.begin(9600);
 
     // pin connections may vary depending on circuit
     pinMode(A5, INPUT);
@@ -78,17 +113,17 @@ void loop() {
 
     if (!(orientation >= -100 && orientation <= 100)) {
         if (x >= 750 || y >= 750)
-            index++;
+            UP = true;
 
         if (x <= 350 || y <= 350)
-            index--;
+            DOWN = true;
     }
 
-    if (index > OPTION_SIZE-1) index = 0;
+    if (in_menu) handlers[index](UP, DOWN, x, y, on);
+    else main_menu(UP, DOWN, x, y, on);
 
-    lcd.setCursor(0,0);
-    lcd.print(format_string("> %s", options[index]));
-    lcd.setCursor(0,1);
-    lcd.print(index);
+    UP = false;
+    DOWN =false;
+
     delay(250);
 }
