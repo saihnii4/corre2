@@ -4,6 +4,22 @@
 
 #define OPTION_SIZE 3 // too fucking lazy mate
 
+enum Characters { CELSIUS = 0 };
+int index;
+bool in_menu = false;
+uint8_t a = 18;
+
+byte celsius[8] = {
+  B00000,
+  B10000,
+  B00110,
+  B01000,
+  B01000,
+  B00110,
+  B00000,
+  B00000
+};
+
 rgb_lcd lcd;
 bool UP, DOWN;
 typedef void (*handler_func)(bool, bool, int, int, int);
@@ -12,12 +28,23 @@ int tempPin = A0, joystickX = 0, joystickY = 1, sw = 7, buzzerPin = 4;
 
 void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
     lcd.clear();
-    lcd.print("Alarm");
+    lcd.print("Alarms");
 }
 
 void temperature_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
+    if (!pressed) {
+        in_menu = false;
+        delay(250);
+        return lcd.clear();
+    }
+
     lcd.clear();
-    lcd.print("Temperature");
+    lcd.print("Temperature:");
+    lcd.setCursor(0, 1);
+    double temp = fetch_temperature();
+    lcd.print(temp);
+    /* lcd.setCursor(5, 1); */ // wtf
+    /* lcd.write(a); */
 }
 
 void settings_menu(bool up, bool down, int jx, int jy, bool pressed) {
@@ -38,8 +65,12 @@ handler_func handlers[OPTION_SIZE] = {
     settings_menu
 };
 
-int index;
-bool in_menu = false;
+double fetch_temperature() {
+    int raw_adc = analogRead(tempPin);
+    double temp = log(10000*((1024.0/raw_adc-1)));
+    temp = 1 / (0.001129148 + (0.000234125 + (0.0000000876741 * temp * temp ))* temp );
+    return temp - 273.15;            // apparently data is sent in kelvins
+}
 
 // some code i lifted from another project
 template <typename... Args>
@@ -57,10 +88,7 @@ void log(const char* module, const char* message) {
 }
 
 void checkTemperature() {
-    int raw_adc = analogRead(tempPin);
-    double temp = log(10000*((1024.0/raw_adc-1)));
-    temp = 1 / (0.001129148 + (0.000234125 + (0.0000000876741 * temp * temp ))* temp );
-    temp = temp - 273.15;            // apparently data is sent in kelvins
+    double temp = fetch_temperature();
     if (temp >= 25 || temp <= 20) digitalWrite(buzzerPin, HIGH);
     else digitalWrite(buzzerPin, LOW);
 }
@@ -93,6 +121,9 @@ void setup() {
     digitalWrite(7, HIGH);
 
     lcd.begin(16, 2);
+
+    lcd.createChar(celsius, a);
+
     lcd.clear();
 }
 
