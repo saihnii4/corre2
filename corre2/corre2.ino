@@ -69,10 +69,11 @@ void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
       _but_last_state = 0;
   }
 
+  (int)digitalRead(3);
+
   lcd.clear();
   lcd.print("Alarm");
   lcd.setCursor(0, 1);
-  Serial.println(format_list("%d:", alarm));
   lcd.print(format_time(alarm[0], alarm[1], alarm[2]));
 }
 
@@ -126,8 +127,9 @@ template <typename... Args>
 const char *format_string(const char *format, Args... args) {
   size_t nbytes = snprintf(NULL, 0, format, args...);
 
-  char *buf = (char *)malloc(sizeof(char) * nbytes);
-  snprintf(buf, nbytes + 1, format, args...);
+  // a null terminator is added (no bueno) if we allocate nbytes of memory
+  char *buf = (char *)malloc(sizeof(char) * (nbytes+1));
+  snprintf(buf, nbytes+1, format, args...);
   return buf;
 }
 
