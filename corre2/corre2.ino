@@ -24,12 +24,7 @@ int _ref_counter;
 int _but_last_state;
 int alarm[3] = {10, 10, 10};
 
-const char* trim(const char* afflicted) {
-    char* buf = malloc(sizeof(char) * strlen(afflicted));
-    memcpy(buf, afflicted, strlen(afflicted));
-    return buf;
-}
-
+// TODO: maybe ?
 template <typename Variable>
 const char* format_list(const char* format, Variable var) {
     return format_string(format, var);
@@ -50,19 +45,25 @@ const char* format_time(int h, int m, int s) { // TODO: bruh
     char* _m = (m < 10) ? format_string("0%d", m) : format_string("%d", m);
     char* _s = (s < 10) ? format_string("0%d", s) : format_string("%d", s);
 
-    trim(_m);
-
-    /* Serial.println(format_string("%s:%s:%s", _h, _m, _s)); */
-
     return format_string("%s:%s:%s", _h, _m, _s);
 }
 
+// TODO: Separate menu and in-menu indices (a part of state management)
+int _alarm_index = 0;
+
+// TODO: menu exits early for some reason
 void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
+    lcd.cursor();
+
   if (!pressed) {
     in_menu = false;
     delay(250);
     return lcd.clear();
   }
+
+  if (up) _alarm_index++;
+  if (down) _alarm_index--;
+  if (_alarm_index > 5) _alarm_index = 0;
   
   if (!_but_last_state && digitalRead(3)) {
       _ref_counter++;
@@ -75,6 +76,8 @@ void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
   lcd.print("Alarm");
   lcd.setCursor(0, 1);
   lcd.print(format_time(alarm[0], alarm[1], alarm[2]));
+  lcd.setCursor(_alarm_index + floor(_alarm_index/2), 1);
+  Serial.println(_jy);
 }
 
 void temperature_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
