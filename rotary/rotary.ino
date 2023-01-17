@@ -21,9 +21,10 @@ void loop() {
     }
     in_revolution = false;
   }
-  Serial.print((int)digitalRead(A0));
+  Serial.print(x);
   Serial.print(" ");
   Serial.print(y);
   Serial.print(" ");
   Serial.println(counter);
+  delay(50);
 }

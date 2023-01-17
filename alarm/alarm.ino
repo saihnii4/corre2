@@ -1,21 +1,25 @@
-#include <PollingTimer.h>
+#include <OneShotTimer.h>
 #include "rgb_lcd.h"
+
+OneShotTimer oneshot(10);
+OneShotTimer twoshot(5);
 
 rgb_lcd lcd;
 
-PollingTimer timer;
-
 void setup() {
     Serial.begin(115200);
-    timer.start();
-    lcd.begin(16, 2);
-    lcd.clear();
+    oneshot.onUpdate([&]() {
+        Serial.println(millis());
+    });
+    twoshot.onUpdate([&]() {
+        Serial.println(millis());
+    });
+
+    oneshot.start();
+    twoshot.start();
 }
 
 void loop() {
-    if (timer.isRunning()) {
-        lcd.print(timer.msec());
-    }
-    delay(500);
-    lcd.clear();
+    oneshot.update();
+    twoshot.update();
 }

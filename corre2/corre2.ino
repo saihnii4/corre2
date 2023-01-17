@@ -1,6 +1,8 @@
 #include "rgb_lcd.h"
 #include <LiquidCrystal.h>
 #include <TH02_dev.h>
+#include <time.h>
+#include <OneShotTimer.h>
 
 #define OPTION_SIZE 3 // too fucking lazy mate
 
@@ -17,6 +19,43 @@ bool UP, DOWN;
 typedef void (*handler_func)(bool, bool, int, int, int);
 
 int tempPin = A0, joystickX = 0, joystickY = 1, sw = 7, buzzerPin = 4;
+// TODO: better state management
+int _ref_counter;
+int _but_last_state;
+int alarm[3] = {10, 10, 10};
+
+const char* trim(const char* afflicted) {
+    char* buf = malloc(sizeof(char) * strlen(afflicted));
+    memcpy(buf, afflicted, strlen(afflicted));
+    return buf;
+}
+
+template <typename Variable>
+const char* format_list(const char* format, Variable var) {
+    return format_string(format, var);
+}
+
+// it is easy to see that the subset must contain the same type of elements
+// as its predicate
+template <typename Init, typename ...Subset>
+const char* format_list(const char* format, Init initial, Subset... subset) {
+    Serial.println(initial);
+    const char* f = format_string(format, initial);
+    return format_list(format_string("%s%s", f, format), subset...);
+}
+
+const char* format_time(int h, int m, int s) { // TODO: bruh
+    // TODO: null byte terminator in format_string bruhh
+    char* _h = (h < 10) ? format_string("0%d", h) : format_string("%d", h);
+    char* _m = (m < 10) ? format_string("0%d", m) : format_string("%d", m);
+    char* _s = (s < 10) ? format_string("0%d", s) : format_string("%d", s);
+
+    trim(_m);
+
+    /* Serial.println(format_string("%s:%s:%s", _h, _m, _s)); */
+
+    return format_string("%s:%s:%s", _h, _m, _s);
+}
 
 void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
   if (!pressed) {
@@ -24,9 +63,17 @@ void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
     delay(250);
     return lcd.clear();
   }
+  
+  if (!_but_last_state && digitalRead(3)) {
+      _ref_counter++;
+      _but_last_state = 0;
+  }
 
   lcd.clear();
-  lcd.print("Alarms");
+  lcd.print("Alarm");
+  lcd.setCursor(0, 1);
+  Serial.println(format_list("%d:", alarm));
+  lcd.print(format_time(alarm[0], alarm[1], alarm[2]));
 }
 
 void temperature_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
@@ -84,6 +131,14 @@ const char *format_string(const char *format, Args... args) {
   return buf;
 }
 
+// TODO: make clear that 9 is not a magic constant
+template <typename... Args>
+const char *format_date(const char *format, struct tm *_time) {
+  char *buf = (char *)malloc(sizeof(char) * 9);
+  strftime(buf, 9, format, _time);
+  return buf;
+}
+
 template <typename... Args> void log(const char *module, const char *message) {
   Serial.println(format_string("[%s] %s", module, message));
 }
@@ -123,8 +178,7 @@ void main_menu(bool up, bool down, int _jx, int _jy, int pressed) {
 }
 
 void setup() {
-  Serial.begin(9600);
-
+  Serial.begin(115200);
   // pin connections may vary depending on circuit
   pinMode(A5, INPUT);
   pinMode(A4, INPUT);
@@ -134,9 +188,7 @@ void setup() {
   digitalWrite(7, HIGH);
 
   lcd.begin(16, 2);
-
   lcd.createChar(celsius, a);
-
   lcd.clear();
 }
 
