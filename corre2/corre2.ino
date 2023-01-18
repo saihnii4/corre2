@@ -62,13 +62,22 @@ int alarm[3] = {10, 10, 10};
 /*     return format_list(format_string("%s%s", f, format), subset...); */
 /* } */
 
-const char* format_time(int h, int m, int s) { // TODO: bruh
+const char* print_time(rgb_lcd lcd, int h, int m, int s) { // TODO: bruh
     // TODO: null byte terminator in format_string bruhh
     char* _h = (h < 10) ? format_string("0%d", h) : format_string("%d", h);
     char* _m = (m < 10) ? format_string("0%d", m) : format_string("%d", m);
     char* _s = (s < 10) ? format_string("0%d", s) : format_string("%d", s);
 
-    return format_string("%s:%s:%s", _h, _m, _s);
+    const char* time = format_string("%s:%s:%s", _h, _m, _s);
+
+    free(_h);
+    free(_m);
+    free(_s);
+
+    lcd.print(time);
+    lcd.setCursor(strlen(time)+1, 1);
+    free(time);
+    return 0;
 }
 
 // TODO: Separate menu and in-menu indices (a part of state management)
@@ -117,14 +126,10 @@ void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
       _but_last_state = 0;
   }
 
-  (int)digitalRead(3);
-  const char* display = format_time(alarm[0], alarm[1], alarm[2]);
-
   lcd.clear();
   lcd.print("Alarm");
   lcd.setCursor(0, 1);
-  lcd.print(format_time(alarm[0], alarm[1], alarm[2]));
-  lcd.setCursor(strlen(display)+1, 1);
+  print_time(lcd, alarm[0], alarm[1], alarm[2]);
   lcd.write(1);
   lcd.setCursor(_alarm_index + floor(_alarm_index/2), 1);
 }
@@ -187,16 +192,26 @@ const char *format_string(const char *format, Args... args) {
   return buf;
 }
 
+template <typename... Args>
+int *format_print(rgb_lcd lcd, const char *format, Args... args) {
+  size_t nbytes = snprintf(NULL, 0, format, args...);
+
+  // a null terminator is added (no bueno) if we allocate nbytes of memory
+  char *buf = (char *)malloc(sizeof(char) * (nbytes+1));
+  snprintf(buf, nbytes+1, format, args...);
+
+  lcd.print(buf);
+
+  free(buf);
+  return 0;
+}
+
 // TODO: make clear that 9 is not a magic constant
 template <typename... Args>
 const char *format_date(const char *format, struct tm *_time) {
   char *buf = (char *)malloc(sizeof(char) * 9);
   strftime(buf, 9, format, _time);
   return buf;
-}
-
-template <typename... Args> void log(const char *module, const char *message) {
-  Serial.println(format_string("[%s] %s", module, message));
 }
 
 // this is so braindead oialnm,awoijlknk
@@ -215,6 +230,7 @@ void checkTemperature() {
 }
 
 
+
 int last_state;
 
 void main_menu(bool up, bool down, int _jx, int _jy, int pressed) {
@@ -231,12 +247,12 @@ void main_menu(bool up, bool down, int _jx, int _jy, int pressed) {
     index = 0;
 
   // don't re-render
-  if (last_state == index) return;
+  /* if (last_state == index) return; */
 
   last_state = index;
 
   lcd.setCursor(0, 0);
-  lcd.print(format_string("> %s", options[index]));
+  format_print(lcd, "> %s", options[index]);
   lcd.setCursor(0, 1);
   lcd.print(index);
 }
@@ -296,7 +312,7 @@ void loop() {
   //     /* } */
   // } else main_menu(UP, DOWN, x, y, on);
 
-  if (false)
+  if (in_menu)
     handlers[index](UP, DOWN, x, y, on);
   else
     main_menu(UP, DOWN, x, y, on);
