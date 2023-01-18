@@ -95,7 +95,8 @@ void exit() {
 // TODO: menu exits early for some reason
 void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
   if (!pressed) {
-      Serial.println("exit()");
+
+    Serial.println("exit()");
     if (_alarm_index != 6) {
         _alarm_increment = true;
         return lcd.blink();
@@ -284,9 +285,7 @@ void loop() {
   int x = (int)analogRead(A2);
   int y = (int)analogRead(A3);
   int on = (int)digitalRead(7);
-  // /* Serial.println(format_string("%d", (double)TH02.ReadTemperature())); */
 
-  // /* Serial.println((int)analogRead(A1), HEX); */
   /* analogWrite(8, 255 / 2); */
 
   int orientation = x + y - 1023;
@@ -298,19 +297,6 @@ void loop() {
     if (x <= 350 || y <= 350)
       DOWN = true;
   }
-
-  // if (in_menu) {
-  //     /* switch (index) { */
-  //     /*     case 0: */
-  //     /*         return temperature_menu(UP, DOWN, x, y, on); */
-  //     /*     case 1: */
-  //     /*         return alarm_menu(UP, DOWN, x, y, on); */
-  //     /*     case 2: */
-  //     /*         return settings_menu(UP, DOWN, x, y, on); */
-  //     /*     default: */
-  //     /*         return; // unreachable */
-  //     /* } */
-  // } else main_menu(UP, DOWN, x, y, on);
 
   if (in_menu)
     handlers[index](UP, DOWN, x, y, on);
