@@ -1,11 +1,15 @@
+// TODO: Refactor this hunk of trash
+
 #include "rgb_lcd.h"
 #include <LiquidCrystal.h>
 #include <TH02_dev.h>
 #include <OneShotTimer.h>
+/* #include <vector> */
 
 #define OPTION_SIZE 3 // too fucking lazy mate
 
-// TODO: wtf
+// TODO: translations
+#define LOCALE
 int index;
 bool in_menu = false;
 
@@ -94,7 +98,7 @@ void exit() {
 }
 
 int to_seconds(int h, int m, int s) {
-    return h*60*60 + h*60 + s;
+    return h*60*60 + m*60 + s;
 }
 
 // TODO: menu exits early for some reason
@@ -171,6 +175,10 @@ void temperature_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
   lcd.setCursor(5, 1);
   lcd.write((uint8_t)0);
 }
+
+// TODO
+#define SETTING_SIZE 1
+/* std::vector settings = {}; */
 
 void settings_menu(bool up, bool down, int jx, int jy, bool pressed) {
   if (!pressed) {
@@ -306,8 +314,6 @@ void loop() {
   int x = (int)analogRead(A2);
   int y = (int)analogRead(A3);
   int on = (int)digitalRead(7);
-
-  /* analogWrite(8, 255 / 2); */
 
   int orientation = x + y - 1023;
 
