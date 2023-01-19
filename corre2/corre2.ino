@@ -45,7 +45,8 @@ typedef void (*handler_func)(bool, bool, int, int, int);
 // TODO: better state management
 int _ref_counter;
 int _but_last_state;
-int alarm[3] = {10, 10, 10};
+int alarm[3] = {0, 0, 5};
+OneShotTimer* alarm_instance; 
 
 /* // TODO: maybe ? */
 /* template <typename Variable> */
@@ -92,15 +93,34 @@ void exit() {
     lcd.clear();
 }
 
+int to_seconds(int h, int m, int s) {
+    return h*60*60 + h*60 + s;
+}
+
 // TODO: menu exits early for some reason
 void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
   if (!pressed) {
+    if (_alarm_increment) {
+        _alarm_increment = false;
+        Serial.println("Test");
+        lcd.noBlink();
+        return lcd.cursor();
+    }
 
-    Serial.println("exit()");
     if (_alarm_index != 6) {
         _alarm_increment = true;
         return lcd.blink();
     }
+
+    Serial.println(to_seconds(alarm[0], alarm[1], alarm[2]));
+
+    alarm_instance = new OneShotTimer(to_seconds(alarm[0], alarm[1], alarm[2]));
+
+    alarm_instance->onUpdate([&]() {
+        digitalWrite(4, HIGH);
+    });
+
+    alarm_instance->start();
 
     in_menu = false;
     delay(250);
@@ -120,7 +140,7 @@ void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
 
   // this should logically be contained within the _alarm_increment if statement
   // but i'm too paranoid
-  if (_alarm_index > 6 || _alarm_index < 0) _alarm_index = 0;
+if (_alarm_index > 6 || _alarm_index < 0) _alarm_index = 0;
   
   if (!_but_last_state && digitalRead(3)) {
       _ref_counter++;
@@ -148,8 +168,8 @@ void temperature_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
   lcd.setCursor(0, 1);
   double temp = fetch_temperature();
   lcd.print(temp);
-  /* lcd.setCursor(5, 1); */ // wtf
-                             /* lcd.write(a); */
+  lcd.setCursor(5, 1);
+  lcd.write((uint8_t)0);
 }
 
 void settings_menu(bool up, bool down, int jx, int jy, bool pressed) {
@@ -219,13 +239,13 @@ const char *format_date(const char *format, struct tm *_time) {
 void checkTemperature() {
   double temp = fetch_temperature();
   if (temp >= 25 || temp <= 20) {
-    digitalWrite(4, HIGH); // buzzer
+    /* digitalWrite(4, HIGH); // buzzer */
     if (temp >= 25)
       lcd.setColor(1);
     if (temp <= 20)
       lcd.setColor(3);
   } else {
-    digitalWrite(4, LOW);
+    /* digitalWrite(4, LOW); */
     lcd.setColor(0);
   }
 }
@@ -274,13 +294,14 @@ void setup() {
   lcd.begin(16, 2);
   lcd.createChar(a, celsius);
   lcd.createChar(b, check_mark);
-  Serial.println("testing");
   lcd.clear();
 }
 
 void loop() {
   display_freeram();
   checkTemperature();
+
+  if (alarm_instance != NULL) alarm_instance->update();
 
   int x = (int)analogRead(A2);
   int y = (int)analogRead(A3);
@@ -306,6 +327,6 @@ void loop() {
   UP = false;
   DOWN = false;
 
-  delay(250);
+  delay(200);
 }
 
