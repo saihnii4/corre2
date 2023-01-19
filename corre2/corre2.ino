@@ -12,11 +12,11 @@
 #define LOCALE
 int index;
 bool in_menu = false;
+int lcd_color;
 
 void display_freeram() {
   Serial.println(freeRam());
 }
-
 
 int freeRam() {
   extern int __heap_start,*__brkval;
@@ -51,21 +51,6 @@ int _ref_counter;
 int _but_last_state;
 int alarm[3] = {0, 0, 5};
 OneShotTimer* alarm_instance; 
-
-/* // TODO: maybe ? */
-/* template <typename Variable> */
-/* const char* format_list(const char* format, Variable var) { */
-/*     return format_string(format, var); */
-/* } */
-/*  */
-/* // it is easy to see that the subset must contain the same type of elements */
-/* // as its predicate */
-/* template <typename Init, typename ...Subset> */
-/* const char* format_list(const char* format, Init initial, Subset... subset) { */
-/*     Serial.println(initial); */
-/*     const char* f = format_string(format, initial); */
-/*     return format_list(format_string("%s%s", f, format), subset...); */
-/* } */
 
 const char* print_time(rgb_lcd lcd, int h, int m, int s) { // TODO: bruh
     // TODO: null byte terminator in format_string bruhh
@@ -122,6 +107,7 @@ void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
 
     alarm_instance->onUpdate([&]() {
         digitalWrite(4, HIGH);
+        lcd_color = 2;
     });
 
     alarm_instance->start();
@@ -135,6 +121,7 @@ void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
   if (_alarm_increment) {
       if (up) alarm[(int)floor(_alarm_index/2)]++;
       if (down) alarm[(int)floor(_alarm_index/2)]--;
+      if (alarm[(int)floor(_alarm_index/2)] < 0) alarm[(int)floor(_alarm_index/2)] = 0;
   } else {
       lcd.cursor();
 
@@ -235,26 +222,21 @@ int *format_print(rgb_lcd lcd, const char *format, Args... args) {
   return 0;
 }
 
-// TODO: make clear that 9 is not a magic constant
-template <typename... Args>
-const char *format_date(const char *format, struct tm *_time) {
-  char *buf = (char *)malloc(sizeof(char) * 9);
-  strftime(buf, 9, format, _time);
-  return buf;
-}
-
 // this is so braindead oialnm,awoijlknk
 void checkTemperature() {
+  if (lcd_color == 2) return;
+
   double temp = fetch_temperature();
+
   if (temp >= 25 || temp <= 20) {
     /* digitalWrite(4, HIGH); // buzzer */
     if (temp >= 25)
-      lcd.setColor(1);
+        lcd_color = 1;
     if (temp <= 20)
-      lcd.setColor(3);
+        lcd_color = 3;
   } else {
     /* digitalWrite(4, LOW); */
-    lcd.setColor(0);
+      lcd_color = 0;
   }
 }
 
@@ -317,6 +299,9 @@ void loop() {
 
   int orientation = x + y - 1023;
 
+  if (lcd_color) digitalWrite(4, HIGH);
+  else digitalWrite(4, LOW);
+
   if (!(orientation >= -100 && orientation <= 100)) {
     if (x >= 750 || y >= 750)
       UP = true;
@@ -324,6 +309,11 @@ void loop() {
     if (x <= 350 || y <= 350)
       DOWN = true;
   }
+
+  if (lcd_color == 2 && (UP || DOWN || !on)) lcd_color = 0;
+
+  lcd.setColor(lcd_color);
+  checkTemperature();
 
   if (in_menu)
     handlers[index](UP, DOWN, x, y, on);
