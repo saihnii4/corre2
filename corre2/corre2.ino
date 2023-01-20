@@ -24,6 +24,8 @@
 #define IR_NINE 0xB54AFF00
 #define IR_PLUS 0xEA15FF00
 #define IR_MINUS 0xF807FF00
+#define IR_PLAY 0xBC43FF00
+
 
 int index;
 bool in_menu = false;
@@ -118,9 +120,27 @@ int to_seconds(int h, int m, int s) {
     return h*60*60 + m*60 + s;
 }
 
-// TODO: menu exits early for some reason
+int manip(int index, int entry, int digit) {
+  if (digit > 9) return -1;
+  if (index % 2 == 0) return (entry % 10) + 10*digit;
+  else return (entry - (entry % 10)) + digit;
+} 
+
+// i mean, you don't really need to validate it
+/* void validate(int orig[3]) { */
+/*     if (orig[2] > 59) { */
+/*         orig[1] += floor(orig[2] / 60) */
+/*     } */
+/*  */
+/*     if (orig[1] > 59) { */
+/*         orig[0] += floor(orig[1]) */
+/*     } */
+/* } */
+
 void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed, IRData* ir) {
-  if (!pressed) {
+    bool ir_safe = ir != NULL && ir->protocol == decode_type_t::NEC;
+
+  if (!pressed || (ir_safe && ir->decodedRawData == IR_PLAY)) {
     if (_alarm_increment) {
         _alarm_increment = false;
         lcd.noBlink();
@@ -133,7 +153,6 @@ void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed, IRData* ir) 
     }
 
     alarm_instance = new OneShotTimer(to_seconds(alarm[0], alarm[1], alarm[2]));
-
     alarm_instance->onUpdate([&]() {
         digitalWrite(4, HIGH);
         lcd_color = 2;
@@ -148,11 +167,68 @@ void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed, IRData* ir) 
 
   // TODO: pure cancer
   if (_alarm_increment) {
+      if (ir_safe) {
+          int _digit = -1;
+          switch(ir->decodedRawData) {
+              case IR_PLUS:
+                alarm[(int)floor(in_menu_index/2)]++;
+                break;
+              case IR_MINUS:
+                alarm[(int)floor(in_menu_index/2)]--;
+                break;
+              case IR_ZERO:
+                _digit = 0;
+                break;
+              case IR_ONE:
+                _digit = 1;
+                break;
+              case IR_TWO:
+                _digit = 2;
+                break;
+              case IR_THREE:
+                _digit = 3;
+                break;
+              case IR_FOUR:
+                _digit = 4;
+                break;
+              case IR_FIVE:
+                _digit = 5;
+                break;
+              case IR_SIX:
+                _digit = 6;
+                break;
+              case IR_SEVEN:
+                _digit = 7;
+                break;
+              case IR_EIGHT:
+                _digit = 8;
+                break;
+              case IR_NINE:
+                _digit = 8;
+                break;
+              default:
+                break;
+          }
+
+        if (_digit >= 0) alarm[(int)floor(in_menu_index/2)] = manip(in_menu_index, alarm[(int)floor(in_menu_index/2)], _digit);
+      }
+
       if (up) alarm[(int)floor(in_menu_index/2)]++;
       if (down) alarm[(int)floor(in_menu_index/2)]--;
       if (alarm[(int)floor(in_menu_index/2)] < 0) alarm[(int)floor(in_menu_index/2)] = 0;
   } else {
       lcd.cursor();
+
+      if (ir_safe) {
+          switch(ir->decodedRawData) {
+              case IR_PLUS:
+                in_menu_index++;
+                return;
+              case IR_MINUS:
+                in_menu_index--;
+                return;
+          }
+      }
 
       if (up) in_menu_index++;
       if (down) in_menu_index--;
@@ -175,8 +251,8 @@ void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed, IRData* ir) 
   lcd.setCursor(in_menu_index + floor(in_menu_index/2), 1);
 }
 
-void temperature_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
-  if (!pressed) {
+void temperature_menu(bool up, bool down, int _jx, int _jy, bool pressed, IRData* ir) {
+  if (!pressed || (ir != NULL && ir->protocol == decode_type_t::NEC && ir->decodedRawData == IR_PLAY)) {
     Serial.println("non-exit()");
     in_menu = false;
     delay(250);
@@ -193,7 +269,7 @@ void temperature_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
 }
 
 void settings_menu(bool up, bool down, int jx, int jy, bool pressed, IRData* ir) {
-  if (!pressed) {
+  if (!pressed && (ir != NULL && ir->protocol == decode_type_t::NEC && ir->decodedRawData == IR_PLAY)) {
     in_menu = false;
     delay(250);
     return lcd.clear();
@@ -286,30 +362,35 @@ void checkTemperature() {
 void main_menu(bool up, bool down, int _jx, int _jy, int pressed, IRData* ir) {
   if (!pressed) in_menu = true;
 
-  /* if (ir != NULL) { */
-  /*     Serial.println("making sure"); */
-  /*     if (ir->protocol == decode_type_t::NEC && ir->decodedRawData == IR_PLUS) // https://github.com/Arduino-IRremote/Arduino-IRremote/blob/master/src/IRProtocol.h */
-  /*         Serial.println("up"); */
-  /* } */
+  if (ir != NULL && ir->protocol == decode_type_t::NEC) {
+      switch (ir->decodedRawData) {
+          case IR_PLUS:
+              index++;
+              return;
+          case IR_MINUS:
+              index--;
+              return;
+          case IR_PLAY:
+              in_menu = true;
+              return;
+          default:
+              return;
+      }
+  }
 
   if (up)
     index--;
-  if (up && index + 1 == 0)
+  if (index + 1 == 0)
     index = OPTION_SIZE - 1;
   if (down)
     index++;
   if (index > OPTION_SIZE - 1)
     index = 0;
 
-  Serial.println("wow");
-
   lcd.setCursor(0, 0);
-  Serial.println(index);
-  display_freeram();
   format_print(lcd, "> %s", options[index]);
   lcd.setCursor(0, 1);
   lcd.print(index);
-  Serial.print("hmm");
 }
 
 void setup() {
@@ -340,7 +421,6 @@ bool _ir_updated;
 void loop() {
   /* display_freeram(); */
   checkTemperature();
-  Serial.println("*");
 
   if (alarm_instance != NULL) alarm_instance->update();
   if (IrReceiver.decode()) {
@@ -381,6 +461,8 @@ void loop() {
 
   UP = false;
   DOWN = false;
+
+  _ir_updated = false;
 
   delay(150);
 }
