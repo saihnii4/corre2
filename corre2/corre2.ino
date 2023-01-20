@@ -9,8 +9,8 @@
 
 #define OPTION_SIZE 3
 
-#define CFG_METRIC      0
-#define CFG_IGNORE_TEMP 1
+#define CFG_METRIC 0
+#define CFG_SILENT 1
 
 #define IR_ZERO 0xE916FF00
 #define IR_ONE 0xF30CFF00
@@ -78,13 +78,11 @@ rgb_lcd lcd;
 bool UP, DOWN;
 typedef void (*handler_func)(bool, bool, int, int, int, IRData*);
 
-// TODO: better state management
 int alarm[3] = {0, 0, 5};
 int settings[2] = {0, 1};
 OneShotTimer* alarm_instance; 
 
-const char* print_time(rgb_lcd lcd, int h, int m, int s) { // TODO: bruh
-    // TODO: null byte terminator in format_string bruhh
+const char* print_time(rgb_lcd lcd, int h, int m, int s) {
     char* _h = (h < 10) ? format_string("0%d", h) : format_string("%d", h);
     char* _m = (m < 10) ? format_string("0%d", m) : format_string("%d", m);
     char* _s = (s < 10) ? format_string("0%d", s) : format_string("%d", s);
@@ -101,7 +99,6 @@ const char* print_time(rgb_lcd lcd, int h, int m, int s) { // TODO: bruh
     return 0;
 }
 
-// TODO: Separate menu and in-menu indices (a part of state management)
 int in_menu_index = 0;
 bool _alarm_increment = false;
 
@@ -278,7 +275,7 @@ void settings_menu(bool up, bool down, int jx, int jy, bool pressed, IRData* ir)
       case 0:
           return display = format_string("> Metric: %s", CFG_METRIC);
       case 1:
-          return display = format_string("> Quiet: %s", CFG_IGNORE_TEMP);
+          return display = format_string("> Quiet: %s", CFG_SILENT);
       default:
           return;
   }
@@ -334,7 +331,6 @@ int *format_print(rgb_lcd lcd, const char *format, Args... args) {
   return 0;
 }
 
-// this is so braindead oialnm,awoijlknk
 void checkTemperature() {
   if (lcd_color == 2) return;
 
@@ -428,7 +424,7 @@ void loop() {
 
   int orientation = x + y - 1023;
 
-  if (lcd_color && !settings[CFG_IGNORE_TEMP]) digitalWrite(4, HIGH);
+  if (lcd_color && !settings[CFG_SILENT]) digitalWrite(4, HIGH);
   else digitalWrite(4, LOW);
 
   if (!(orientation >= -100 && orientation <= 100)) {
@@ -439,7 +435,7 @@ void loop() {
       DOWN = true;
   }
 
-  if (lcd_color == 2 && (UP || DOWN || !on)) {
+  if (lcd_color == 2 && (UP || DOWN || !on || _ir_updated)) {
       free(alarm_instance); // TODO: mem leak
       lcd_color = 0;
   }
@@ -454,7 +450,6 @@ void loop() {
 
   UP = false;
   DOWN = false;
-
   _ir_updated = false;
 
   delay(150);
