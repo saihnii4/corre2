@@ -21,11 +21,7 @@ void display_freeram() {
 int freeRam() {
   extern int __heap_start,*__brkval;
   int v;
-
-  return (int)&v - (__brkval == 0  
-
-    ? (int)&__heap_start : (int) __brkval);  
-
+  return (int)&v - (__brkval == 0 ? (int)&__heap_start : (int) __brkval);  
 }
 
 byte celsius[8] = {B00000, B10000, B00110, B01000,
