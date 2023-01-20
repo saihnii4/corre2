@@ -6,11 +6,8 @@
 #include <IRremote.hpp>
 #include <IRProtocol.h>
 #include <OneShotTimer.h>
-/* #include <vector> */
 
-#define OPTION_SIZE 3 // too fucking lazy mate
-
-// TODO: translations
+#define OPTION_SIZE 3
 
 #define CFG_METRIC      0
 #define CFG_IGNORE_TEMP 1
@@ -77,7 +74,7 @@ byte faranheit[8] = {
 
 rgb_lcd lcd;
 bool UP, DOWN;
-typedef void (*handler_func)(bool, bool, int, int, int, IRData);
+typedef void (*handler_func)(bool, bool, int, int, int, IRData*);
 
 // TODO: better state management
 int _ref_counter;
@@ -122,7 +119,7 @@ int to_seconds(int h, int m, int s) {
 }
 
 // TODO: menu exits early for some reason
-void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed, IRData ir) {
+void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed, IRData* ir) {
   if (!pressed) {
     if (_alarm_increment) {
         _alarm_increment = false;
@@ -195,7 +192,7 @@ void temperature_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
   lcd.write((uint8_t)(settings[CFG_METRIC] ? 2 : 0));
 }
 
-void settings_menu(bool up, bool down, int jx, int jy, bool pressed, IRData ir) {
+void settings_menu(bool up, bool down, int jx, int jy, bool pressed, IRData* ir) {
   if (!pressed) {
     in_menu = false;
     delay(250);
@@ -259,7 +256,7 @@ int *format_print(rgb_lcd lcd, const char *format, Args... args) {
   size_t nbytes = snprintf(NULL, 0, format, args...);
 
   // a null terminator is added (no bueno) if we allocate nbytes of memory
-  char *buf = (char *)malloc(sizeof(char) * (nbytes+1));
+  char *buf = (char *)malloc(sizeof(char) * (nbytes));
   snprintf(buf, nbytes+1, format, args...);
 
   lcd.print(buf);
@@ -286,13 +283,14 @@ void checkTemperature() {
 
 
 
-int last_state;
-
-void main_menu(bool up, bool down, int _jx, int _jy, int pressed, IRData ir) {
+void main_menu(bool up, bool down, int _jx, int _jy, int pressed, IRData* ir) {
   if (!pressed) in_menu = true;
 
-  if (ir.protocol == decode_type_t::NEC && ir.decodedRawData == IR_PLUS) // https://github.com/Arduino-IRremote/Arduino-IRremote/blob/master/src/IRProtocol.h
-      Serial.println("up");
+  /* if (ir != NULL) { */
+  /*     Serial.println("making sure"); */
+  /*     if (ir->protocol == decode_type_t::NEC && ir->decodedRawData == IR_PLUS) // https://github.com/Arduino-IRremote/Arduino-IRremote/blob/master/src/IRProtocol.h */
+  /*         Serial.println("up"); */
+  /* } */
 
   if (up)
     index--;
@@ -303,15 +301,15 @@ void main_menu(bool up, bool down, int _jx, int _jy, int pressed, IRData ir) {
   if (index > OPTION_SIZE - 1)
     index = 0;
 
-  // don't re-render
-  /* if (last_state == index) return; */
-
-  last_state = index;
+  Serial.println("wow");
 
   lcd.setCursor(0, 0);
+  Serial.println(index);
+  display_freeram();
   format_print(lcd, "> %s", options[index]);
   lcd.setCursor(0, 1);
   lcd.print(index);
+  Serial.print("hmm");
 }
 
 void setup() {
@@ -337,15 +335,18 @@ void setup() {
 }
 
 IRData _ir_data;
-IRData _last_ir_data;
+bool _ir_updated;
 
 void loop() {
   /* display_freeram(); */
   checkTemperature();
+  Serial.println("*");
 
   if (alarm_instance != NULL) alarm_instance->update();
   if (IrReceiver.decode()) {
-      _ir_data = &IrReceiver.decodedIRData;
+      _ir_data = IrReceiver.decodedIRData;
+      _ir_updated = true;
+      IrReceiver.resume();
   }
 
   int x = (int)analogRead(A2);
@@ -372,17 +373,14 @@ void loop() {
 
   lcd.setColor(lcd_color);
   checkTemperature();
-  IrReceiver.resume();
 
   if (in_menu)
-    handlers[index](UP, DOWN, x, y, on, ir_data);
+    handlers[index](UP, DOWN, x, y, on, _ir_updated ? &_ir_data : NULL);
   else
-    main_menu(UP, DOWN, x, y, on, ir_data);
+    main_menu(UP, DOWN, x, y, on, _ir_updated ? &_ir_data : NULL);
 
   UP = false;
   DOWN = false;
-
-  _last_ir_data = ir_data;
 
   delay(150);
 }
