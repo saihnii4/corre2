@@ -1,4 +1,4 @@
-// TODO: Refactor this hunk of trash
+/// TODO: Refactor this hunk of trash
 
 #include "rgb_lcd.h"
 #include <LiquidCrystal.h>
@@ -79,8 +79,6 @@ bool UP, DOWN;
 typedef void (*handler_func)(bool, bool, int, int, int, IRData*);
 
 // TODO: better state management
-int _ref_counter;
-int _but_last_state;
 int alarm[3] = {0, 0, 5};
 int settings[2] = {0, 1};
 OneShotTimer* alarm_instance; 
@@ -237,11 +235,6 @@ void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed, IRData* ir) 
   // this should logically be contained within the _alarm_increment if statement
   // but i'm too paranoid
   if (in_menu_index > 6 || in_menu_index < 0) in_menu_index = 0;
-  
-  if (!_but_last_state && digitalRead(3)) {
-      _ref_counter++;
-      _but_last_state = 0;
-  }
 
   lcd.clear();
   lcd.print("Alarm");
@@ -447,7 +440,7 @@ void loop() {
   }
 
   if (lcd_color == 2 && (UP || DOWN || !on)) {
-      free(alarm_instance);
+      free(alarm_instance); // TODO: mem leak
       lcd_color = 0;
   }
 
