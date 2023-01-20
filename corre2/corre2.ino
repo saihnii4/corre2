@@ -3,13 +3,31 @@
 #include "rgb_lcd.h"
 #include <LiquidCrystal.h>
 #include <TH02_dev.h>
+#include <IRremote.hpp>
+#include <IRProtocol.h>
 #include <OneShotTimer.h>
 /* #include <vector> */
 
 #define OPTION_SIZE 3 // too fucking lazy mate
 
 // TODO: translations
-#define LOCALE
+
+#define CFG_METRIC      0
+#define CFG_IGNORE_TEMP 1
+
+#define IR_ZERO 0xE916FF00
+#define IR_ONE 0xF30CFF00
+#define IR_TWO 0xE718FF00
+#define IR_THREE 0xA15EFF00
+#define IR_FOUR 0xF708FF00
+#define IR_FIVE 0xE31CFF00
+#define IR_SIX 0xA55AFF00
+#define IR_SEVEN 0xBD42FF00
+#define IR_EIGHT 0xAD52FF00
+#define IR_NINE 0xB54AFF00
+#define IR_PLUS 0xEA15FF00
+#define IR_MINUS 0xF807FF00
+
 int index;
 bool in_menu = false;
 int lcd_color;
@@ -24,8 +42,16 @@ int freeRam() {
   return (int)&v - (__brkval == 0 ? (int)&__heap_start : (int) __brkval);  
 }
 
-byte celsius[8] = {B00000, B10000, B00110, B01000,
-                   B01000, B00110, B00000, B00000};
+byte celsius[8] = {
+    B00000,
+    B10000,
+    B00111,
+    B01000,
+    B01000,
+    B01000,
+    B00111,
+    B00000
+};
 
 byte check_mark[8] ={
     B00000,
@@ -38,14 +64,26 @@ byte check_mark[8] ={
     B00000
 };
 
+byte faranheit[8] = {
+    B00000,
+    B10000,
+    B01111,
+    B01000,
+    B01110,
+    B01000,
+    B01000,
+    B00000,
+};
+
 rgb_lcd lcd;
 bool UP, DOWN;
-typedef void (*handler_func)(bool, bool, int, int, int);
+typedef void (*handler_func)(bool, bool, int, int, int, IRData);
 
 // TODO: better state management
 int _ref_counter;
 int _but_last_state;
 int alarm[3] = {0, 0, 5};
+int settings[2] = {0, 1};
 OneShotTimer* alarm_instance; 
 
 const char* print_time(rgb_lcd lcd, int h, int m, int s) { // TODO: bruh
@@ -67,7 +105,7 @@ const char* print_time(rgb_lcd lcd, int h, int m, int s) { // TODO: bruh
 }
 
 // TODO: Separate menu and in-menu indices (a part of state management)
-int _alarm_index = 0;
+int in_menu_index = 0;
 bool _alarm_increment = false;
 
 // handles menu exit [cleans up LCD cursor and does stuff]
@@ -76,6 +114,7 @@ void exit() {
     lcd.noCursor();
     lcd.noBlink();
     lcd.clear();
+    in_menu_index = 0;
 }
 
 int to_seconds(int h, int m, int s) {
@@ -83,21 +122,18 @@ int to_seconds(int h, int m, int s) {
 }
 
 // TODO: menu exits early for some reason
-void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
+void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed, IRData ir) {
   if (!pressed) {
     if (_alarm_increment) {
         _alarm_increment = false;
-        Serial.println("Test");
         lcd.noBlink();
         return lcd.cursor();
     }
 
-    if (_alarm_index != 6) {
+    if (in_menu_index != 6) {
         _alarm_increment = true;
         return lcd.blink();
     }
-
-    Serial.println(to_seconds(alarm[0], alarm[1], alarm[2]));
 
     alarm_instance = new OneShotTimer(to_seconds(alarm[0], alarm[1], alarm[2]));
 
@@ -115,19 +151,19 @@ void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
 
   // TODO: pure cancer
   if (_alarm_increment) {
-      if (up) alarm[(int)floor(_alarm_index/2)]++;
-      if (down) alarm[(int)floor(_alarm_index/2)]--;
-      if (alarm[(int)floor(_alarm_index/2)] < 0) alarm[(int)floor(_alarm_index/2)] = 0;
+      if (up) alarm[(int)floor(in_menu_index/2)]++;
+      if (down) alarm[(int)floor(in_menu_index/2)]--;
+      if (alarm[(int)floor(in_menu_index/2)] < 0) alarm[(int)floor(in_menu_index/2)] = 0;
   } else {
       lcd.cursor();
 
-      if (up) _alarm_index++;
-      if (down) _alarm_index--;
+      if (up) in_menu_index++;
+      if (down) in_menu_index--;
   }
 
   // this should logically be contained within the _alarm_increment if statement
   // but i'm too paranoid
-if (_alarm_index > 6 || _alarm_index < 0) _alarm_index = 0;
+  if (in_menu_index > 6 || in_menu_index < 0) in_menu_index = 0;
   
   if (!_but_last_state && digitalRead(3)) {
       _ref_counter++;
@@ -139,7 +175,7 @@ if (_alarm_index > 6 || _alarm_index < 0) _alarm_index = 0;
   lcd.setCursor(0, 1);
   print_time(lcd, alarm[0], alarm[1], alarm[2]);
   lcd.write(1);
-  lcd.setCursor(_alarm_index + floor(_alarm_index/2), 1);
+  lcd.setCursor(in_menu_index + floor(in_menu_index/2), 1);
 }
 
 void temperature_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
@@ -153,28 +189,41 @@ void temperature_menu(bool up, bool down, int _jx, int _jy, bool pressed) {
   lcd.clear();
   lcd.print("Temperature:");
   lcd.setCursor(0, 1);
-  double temp = fetch_temperature();
+  double temp = fetch_temperature(settings[CFG_METRIC]);
   lcd.print(temp);
   lcd.setCursor(5, 1);
-  lcd.write((uint8_t)0);
+  lcd.write((uint8_t)(settings[CFG_METRIC] ? 2 : 0));
 }
 
-// TODO
-#define SETTING_SIZE 1
-/* std::vector settings = {}; */
-
-void settings_menu(bool up, bool down, int jx, int jy, bool pressed) {
+void settings_menu(bool up, bool down, int jx, int jy, bool pressed, IRData ir) {
   if (!pressed) {
     in_menu = false;
     delay(250);
     return lcd.clear();
   }
 
+  const char* display;
+  
+  if (up) in_menu_index++;
+  if (down) in_menu_index--;
+  if (in_menu_index < 0 || in_menu_index > 1) in_menu_index = 0;
+
+  switch (in_menu_index) {
+      case 0:
+          return display = format_string("> Metric: %s", CFG_METRIC);
+      case 1:
+          return display = format_string("> Quiet: %s", CFG_IGNORE_TEMP);
+      default:
+          return;
+  }
+
   lcd.clear();
   lcd.print("Settings");
+  lcd.setCursor(0, 1);
+  lcd.print(display);
+  free(display);
 }
 
-// TODO: scroll overflow & translation
 const char *options[OPTION_SIZE] = {
     "Temperature",
     "Alarms     ",
@@ -184,13 +233,14 @@ const char *options[OPTION_SIZE] = {
 handler_func handlers[OPTION_SIZE] = {temperature_menu, alarm_menu,
                                       settings_menu};
 
-double fetch_temperature() {
+double fetch_temperature(bool faranheit) {
   int raw_adc = analogRead(A0);
   double temp = log(10000 * ((1024.0 / raw_adc - 1)));
   temp = 1 /
          (0.001129148 + (0.000234125 + (0.0000000876741 * temp * temp)) * temp);
+  temp = temp - 273.15;
 
-  return temp - 273.15; // apparently data is sent in kelvins
+  return faranheit ? temp*9/5 + 32 : temp; // apparently data is sent in kelvins
 }
 
 // some code i lifted from another project
@@ -222,16 +272,14 @@ int *format_print(rgb_lcd lcd, const char *format, Args... args) {
 void checkTemperature() {
   if (lcd_color == 2) return;
 
-  double temp = fetch_temperature();
+  double temp = fetch_temperature(0);
 
   if (temp >= 25 || temp <= 20) {
-    /* digitalWrite(4, HIGH); // buzzer */
     if (temp >= 25)
         lcd_color = 1;
     if (temp <= 20)
         lcd_color = 3;
   } else {
-    /* digitalWrite(4, LOW); */
       lcd_color = 0;
   }
 }
@@ -240,9 +288,11 @@ void checkTemperature() {
 
 int last_state;
 
-void main_menu(bool up, bool down, int _jx, int _jy, int pressed) {
-  if (!pressed)
-    in_menu = true;
+void main_menu(bool up, bool down, int _jx, int _jy, int pressed, IRData ir) {
+  if (!pressed) in_menu = true;
+
+  if (ir.protocol == decode_type_t::NEC && ir.decodedRawData == IR_PLUS) // https://github.com/Arduino-IRremote/Arduino-IRremote/blob/master/src/IRProtocol.h
+      Serial.println("up");
 
   if (up)
     index--;
@@ -272,22 +322,31 @@ void setup() {
   pinMode(7, INPUT);
   pinMode(A0, INPUT);
 
+  IrReceiver.begin(5, true);
   digitalWrite(7, HIGH);
 
   uint8_t b = 1; // TODO: WTFFFF!!!
   uint8_t a = 0; // TODO: WTFFFF!!!
+  uint8_t c = 2;
 
   lcd.begin(16, 2);
   lcd.createChar(a, celsius);
   lcd.createChar(b, check_mark);
+  lcd.createChar(c, faranheit);
   lcd.clear();
 }
 
+IRData _ir_data;
+IRData _last_ir_data;
+
 void loop() {
-  display_freeram();
+  /* display_freeram(); */
   checkTemperature();
 
   if (alarm_instance != NULL) alarm_instance->update();
+  if (IrReceiver.decode()) {
+      _ir_data = &IrReceiver.decodedIRData;
+  }
 
   int x = (int)analogRead(A2);
   int y = (int)analogRead(A3);
@@ -295,7 +354,7 @@ void loop() {
 
   int orientation = x + y - 1023;
 
-  if (lcd_color) digitalWrite(4, HIGH);
+  if (lcd_color && !settings[CFG_IGNORE_TEMP]) digitalWrite(4, HIGH);
   else digitalWrite(4, LOW);
 
   if (!(orientation >= -100 && orientation <= 100)) {
@@ -306,19 +365,25 @@ void loop() {
       DOWN = true;
   }
 
-  if (lcd_color == 2 && (UP || DOWN || !on)) lcd_color = 0;
+  if (lcd_color == 2 && (UP || DOWN || !on)) {
+      free(alarm_instance);
+      lcd_color = 0;
+  }
 
   lcd.setColor(lcd_color);
   checkTemperature();
+  IrReceiver.resume();
 
   if (in_menu)
-    handlers[index](UP, DOWN, x, y, on);
+    handlers[index](UP, DOWN, x, y, on, ir_data);
   else
-    main_menu(UP, DOWN, x, y, on);
+    main_menu(UP, DOWN, x, y, on, ir_data);
 
   UP = false;
   DOWN = false;
 
-  delay(200);
+  _last_ir_data = ir_data;
+
+  delay(150);
 }
 
