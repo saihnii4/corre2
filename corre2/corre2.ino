@@ -7,10 +7,10 @@
 #include <IRProtocol.h>
 #include <OneShotTimer.h>
 
-#define OPTION_SIZE 3
+#define OPTION_SIZE 2
 
 #define CFG_METRIC 0
-#define CFG_SILENT 1
+#define CFG_SILENT 0
 
 #define IR_ZERO 0xE916FF00
 #define IR_ONE 0xF30CFF00
@@ -25,7 +25,6 @@
 #define IR_PLUS 0xEA15FF00
 #define IR_MINUS 0xF807FF00
 #define IR_PLAY 0xBC43FF00
-
 
 int index;
 bool in_menu = false;
@@ -258,43 +257,12 @@ void temperature_menu(bool up, bool down, int _jx, int _jy, bool pressed, IRData
   lcd.write((uint8_t)(settings[CFG_METRIC] ? 2 : 0));
 }
 
-void settings_menu(bool up, bool down, int jx, int jy, bool pressed, IRData* ir) {
-  if (!pressed && (ir != NULL && ir->protocol == decode_type_t::NEC && ir->decodedRawData == IR_PLAY)) {
-    in_menu = false;
-    delay(250);
-    return lcd.clear();
-  }
-
-  const char* display;
-  
-  if (up) in_menu_index++;
-  if (down) in_menu_index--;
-  if (in_menu_index < 0 || in_menu_index > 1) in_menu_index = 0;
-
-  switch (in_menu_index) {
-      case 0:
-          return display = format_string("> Metric: %s", CFG_METRIC);
-      case 1:
-          return display = format_string("> Quiet: %s", CFG_SILENT);
-      default:
-          return;
-  }
-
-  lcd.clear();
-  lcd.print("Settings");
-  lcd.setCursor(0, 1);
-  lcd.print(display);
-  free(display);
-}
-
 const char *options[OPTION_SIZE] = {
     "Temperature",
     "Alarms     ",
-    "Settings   ",
 };
 
-handler_func handlers[OPTION_SIZE] = {temperature_menu, alarm_menu,
-                                      settings_menu};
+handler_func handlers[OPTION_SIZE] = {temperature_menu, alarm_menu};
 
 double fetch_temperature(bool faranheit) {
   int raw_adc = analogRead(A0);
@@ -377,9 +345,9 @@ void main_menu(bool up, bool down, int _jx, int _jy, int pressed, IRData* ir) {
     index = 0;
 
   lcd.setCursor(0, 0);
-  format_print(lcd, "> %s", options[index]);
+  lcd.print("Sapling");
   lcd.setCursor(0, 1);
-  lcd.print(index);
+  format_print(lcd, "> %s", options[index]);
 }
 
 void setup() {
