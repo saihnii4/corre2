@@ -31,7 +31,7 @@
 #define PIN_TEMP   A0
 #define PIN_JOYSW  7
 #define PIN_JOY1   A2
-#define PIN_JOY2   A3
+#define PIN_JOY2   A5
 #define PIN_IR     5
 
 int index;
