@@ -85,7 +85,7 @@ bool UP, DOWN;
 typedef void (*handler_func)(bool, bool, int, int, int, IRData*);
 
 int alarm[3] = {0, 0, 5};
-int settings[2] = {0, 1};
+int settings[2] = {0, 0};
 OneShotTimer* alarm_instance; 
 
 const char* print_time(rgb_lcd lcd, int h, int m, int s) {
@@ -395,8 +395,8 @@ void loop() {
   }
 
   int x = (int)analogRead(PIN_JOY1);
-  int y = (int)analonalogRead(PIN_JOY2);
-  int on = (int)digitalRead(PIN_SW);
+  int y = (int)analogRead(PIN_JOY2);
+  int on = (int)digitalRead(PIN_JOYSW);
 
   int orientation = x + y - 1023;
 
