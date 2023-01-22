@@ -10,7 +10,7 @@
 #define OPTION_SIZE 2
 
 #define CFG_METRIC 0
-#define CFG_SILENT 0
+#define CFG_SILENT 1
 
 #define IR_ZERO 0xE916FF00
 #define IR_ONE 0xF30CFF00
@@ -25,6 +25,13 @@
 #define IR_PLUS 0xEA15FF00
 #define IR_MINUS 0xF807FF00
 #define IR_PLAY 0xBC43FF00
+
+#define PIN_BUZZER 4
+#define PIN_TEMP   A0
+#define PIN_JOYSW  7
+#define PIN_JOY1   A2
+#define PIN_JOY2   A3
+#define PIN_IR     5
 
 int index;
 bool in_menu = false;
@@ -148,7 +155,7 @@ void alarm_menu(bool up, bool down, int _jx, int _jy, bool pressed, IRData* ir) 
 
     alarm_instance = new OneShotTimer(to_seconds(alarm[0], alarm[1], alarm[2]));
     alarm_instance->onUpdate([&]() {
-        digitalWrite(4, HIGH);
+        digitalWrite(PIN_BUZZER, HIGH);
         lcd_color = 2;
     });
 
@@ -265,7 +272,7 @@ const char *options[OPTION_SIZE] = {
 handler_func handlers[OPTION_SIZE] = {temperature_menu, alarm_menu};
 
 double fetch_temperature(bool faranheit) {
-  int raw_adc = analogRead(A0);
+  int raw_adc = analogRead(PIN_TEMP);
   double temp = log(10000 * ((1024.0 / raw_adc - 1)));
   temp = 1 /
          (0.001129148 + (0.000234125 + (0.0000000876741 * temp * temp)) * temp);
@@ -353,13 +360,14 @@ void main_menu(bool up, bool down, int _jx, int _jy, int pressed, IRData* ir) {
 void setup() {
   Serial.begin(115200);
   // pin connections may vary depending on circuit
+  // ?
   pinMode(A5, INPUT);
   pinMode(A4, INPUT);
-  pinMode(7, INPUT);
-  pinMode(A0, INPUT);
+  pinMode(PIN_JOYSW, INPUT);
+  pinMode(PIN_TEMP, INPUT);
 
-  IrReceiver.begin(5, true);
-  digitalWrite(7, HIGH);
+  IrReceiver.begin(PIN_IR, true);
+  digitalWrite(PIN_JOYSW, HIGH);
 
   uint8_t b = 1; // TODO: WTFFFF!!!
   uint8_t a = 0; // TODO: WTFFFF!!!
@@ -386,14 +394,14 @@ void loop() {
       IrReceiver.resume();
   }
 
-  int x = (int)analogRead(A2);
-  int y = (int)analogRead(A3);
-  int on = (int)digitalRead(7);
+  int x = (int)analogRead(PIN_JOY1);
+  int y = (int)analonalogRead(PIN_JOY2);
+  int on = (int)digitalRead(PIN_SW);
 
   int orientation = x + y - 1023;
 
-  if (lcd_color && !settings[CFG_SILENT]) digitalWrite(4, HIGH);
-  else digitalWrite(4, LOW);
+  if (lcd_color && !settings[CFG_SILENT]) digitalWrite(PIN_BUZZER, HIGH);
+  else digitalWrite(PIN_BUZZER, LOW);
 
   if (!(orientation >= -100 && orientation <= 100)) {
     if (x >= 750 || y >= 750)
