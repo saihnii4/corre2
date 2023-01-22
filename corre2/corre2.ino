@@ -11,6 +11,7 @@
 
 #define CFG_METRIC 0
 #define CFG_SILENT 1
+#define CFG_IGNORE_TEMP 1
 
 #define IR_ZERO 0xE916FF00
 #define IR_ONE 0xF30CFF00
@@ -385,7 +386,7 @@ bool _ir_updated;
 
 void loop() {
   /* display_freeram(); */
-  checkTemperature();
+  if (!CFG_IGNORE_TEMP) checkTemperature();
 
   if (alarm_instance != NULL) alarm_instance->update();
   if (IrReceiver.decode()) {
@@ -417,7 +418,6 @@ void loop() {
   }
 
   lcd.setColor(lcd_color);
-  checkTemperature();
 
   if (in_menu)
     handlers[index](UP, DOWN, x, y, on, _ir_updated ? &_ir_data : NULL);
@@ -428,6 +428,6 @@ void loop() {
   DOWN = false;
   _ir_updated = false;
 
-  delay(150);
+  delay(100);
 }
 
